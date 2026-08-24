@@ -18,7 +18,7 @@
     --block: #182016;
     --block-edge: #1c1830;
     --paint: #e8dcc0;
-    --paint-dim: #6b6350;
+    --paint-dim: #8a8065;
     --red: #e0654f;
     --yellow: #e8b23f;
     --green: #8fb878;
@@ -370,6 +370,25 @@
     color: var(--yellow);
     transform: rotate(-10deg);
   }
+
+  /* The celebratory flourish that plays each time the rank badge above
+     is (re)earned — a separate transient popup, same fade/float/fade
+     mechanics as the trophy, with the new rank sitting beside the crown
+     rather than in a pill underneath it. */
+  .score-popup.crown-popup {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 15px;
+    transition: top 1.1s ease-out, opacity 1.1s ease-out;
+  }
+  .score-popup.crown-popup svg {
+    filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 7px rgba(255, 193, 7, 0.4));
+  }
+  .score-popup.crown-popup .crown-popup-rank {
+    font-weight: 700;
+    color: var(--yellow);
+  }
 </style>
 
 <div class="stage">
@@ -476,6 +495,17 @@ function hexToRgba(hex, alpha) {
   const h = hex.replace("#", "");
   const r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+// Nudges a hex color's brightness up/down by a flat amount per channel —
+// used to dither flat fills into a noisy pixel-block texture instead of
+// one smooth rect.
+function shadeHex(hex, amt) {
+  const h = hex.replace("#", "");
+  const clamp = (v) => Math.max(0, Math.min(255, v));
+  const r = clamp(parseInt(h.substring(0, 2), 16) + amt);
+  const g = clamp(parseInt(h.substring(2, 4), 16) + amt);
+  const b = clamp(parseInt(h.substring(4, 6), 16) + amt);
+  return `rgb(${r},${g},${b})`;
 }
 // A soft triangular glow, additively blended so overlapping cones brighten
 // instead of just stacking flat color — used for both the traffic lights'
@@ -654,6 +684,16 @@ function updateCarEngine(car, moving) {
   const now = audioCtx.currentTime;
   if (!car.engine.src) attachEngineLoop(car);
   if (car.engine.gain) car.engine.gain.gain.setTargetAtTime(moving ? 0.26 : 0.2, now, 0.35);
+  // Pulling away from a stop/queue — a brief rev as revs climb through the
+  // lower gears, then eased back to natural pitch once up to cruising
+  // speed. Unlike a sustained cruise pitch-up (which just sounds like a
+  // sped-up tape, see above), this only fires at the moment of takeoff.
+  if (moving && !car.engine.wasMoving && car.engine.src) {
+    const pr = car.engine.src.playbackRate;
+    pr.cancelScheduledValues(now);
+    pr.setValueAtTime(1.22, now);
+    pr.setTargetAtTime(1, now, 0.35);
+  }
   car.engine.wasMoving = moving;
 }
 function stopCarEngine(car) {
@@ -777,10 +817,30 @@ function playLightTick() {
 function playScoreChime(positive) {
   if (!audioCtx) return;
   const now = audioCtx.currentTime;
+  if (positive) {
+    // A bright two-partial "ding" — fundamental plus a higher overtone,
+    // near-instant attack and a long exponential decay — reads as a
+    // desk-bell hit rather than the quick sine sweep the negative case
+    // still uses below.
+    for (const [freq, peak, decay] of [[1318.5, 0.09, 0.9], [2637, 0.05, 0.5]]) {
+      const osc = audioCtx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now);
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(peak, now + 0.003);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + decay + 0.05);
+    }
+    return;
+  }
   const osc = audioCtx.createOscillator();
   osc.type = "sine";
-  osc.frequency.setValueAtTime(positive ? 660 : 220, now);
-  osc.frequency.exponentialRampToValueAtTime(positive ? 990 : 165, now + 0.12);
+  osc.frequency.setValueAtTime(220, now);
+  osc.frequency.exponentialRampToValueAtTime(165, now + 0.12);
   const gain = audioCtx.createGain();
   gain.gain.setValueAtTime(0.07, now);
   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
@@ -922,9 +982,11 @@ async function maybePublishGlobalBest(candidateScore) {
 
   // A crown + rank badge hangs on the score field's corner for the rest
   // of the session (not just a passing popup), and updates in place if
-  // the run climbs further within the top 5.
+  // the run climbs further within the top 5. The crown flourish (popup
+  // + choir swell) plays every time, including on later rank improves.
   const rank = globalScores.filter((e) => e.score > candidateScore).length + 1;
   updateGlobalRankBadge(rank);
+  showCrownPopup(rank);
   myGlobalScore = candidateScore;
 
   if (!claudeArtifact) { renderGlobalLeaderboard(); return; } // capability unavailable in this view — read-only
@@ -1051,6 +1113,68 @@ function popScorePopup(text) {
   setTimeout(() => el.remove(), isTrophy ? 1150 : 950);
 }
 
+// The crown flourish — fades in, floats up past the score badge, fades
+// out, same as the trophy popup above, but carrying its own small crown
+// glyph plus the new rank ("#2") beside it instead of plain text.
+function showCrownPopup(rank) {
+  const el = document.createElement("div");
+  el.className = "score-popup trophy crown-popup";
+  el.innerHTML = `
+    <svg width="30" height="24" viewBox="0 0 64 52" aria-hidden="true">
+      <defs>
+        <linearGradient id="crownGoldPop" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fff3c4"/>
+          <stop offset="45%" stop-color="#ffcf40"/>
+          <stop offset="100%" stop-color="#c8860a"/>
+        </linearGradient>
+        <linearGradient id="crownBandPop" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#e8a917"/>
+          <stop offset="100%" stop-color="#8a5a05"/>
+        </linearGradient>
+      </defs>
+      <path d="M4 44 L4 22 L16 32 L32 8 L48 32 L60 22 L60 44 Z" fill="url(#crownGoldPop)" stroke="#7a4e04" stroke-width="1.5" stroke-linejoin="round"/>
+      <rect x="4" y="44" width="56" height="7" rx="2" fill="url(#crownBandPop)" stroke="#7a4e04" stroke-width="1.5"/>
+      <circle cx="16" cy="30" r="3" fill="#ff4d4f"/>
+      <circle cx="32" cy="20" r="3.4" fill="#33d17a"/>
+      <circle cx="48" cy="30" r="3" fill="#3aa0ff"/>
+    </svg>
+    <span class="crown-popup-rank">#${rank}</span>`;
+  el.style.top = "6px";
+  stageEl.appendChild(el);
+  requestAnimationFrame(() => {
+    el.style.top = "-64px";
+    el.style.opacity = "0";
+  });
+  setTimeout(() => el.remove(), 1150);
+  playAngelicSwell();
+}
+
+// A warm sustained "ahh" for the crown flourish — several detuned sine
+// triples stacked into a major chord (a cheap stand-in for choir chorus:
+// each note gets 3 near-unison voices a few cents apart), with a slow
+// swell in and a long fade rather than any percussive attack.
+function playAngelicSwell() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const chord = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+  for (const freq of chord) {
+    for (const detune of [-6, 0, 6]) {
+      const osc = audioCtx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now);
+      osc.detune.setValueAtTime(detune, now);
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.02, now + 0.5);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 2.3);
+    }
+  }
+}
+
 const TRAVEL = {
   N: {x: 0, y: 1}, S: {x: 0, y: -1}, E: {x: -1, y: 0}, W: {x: 1, y: 0},
 };
@@ -1059,17 +1183,61 @@ const PERP = {
 };
 const ANGLE = {N: Math.PI / 2, S: -Math.PI / 2, E: Math.PI, W: 0};
 
+// Which approach a car ends up traveling as once it's turned — derived
+// from rotating each approach's own travel vector -90°/+90°. LEFT[N]='W'
+// reads as: a car approaching from the north, turning left, ends up
+// moving the same way a W-approach car does (east) — see carWorldPos,
+// which switches a turning car onto this direction's TRAVEL/PERP once
+// the turn arc completes.
+const LEFT = {N: "W", S: "E", E: "N", W: "S"};
+const RIGHT = {N: "E", S: "W", E: "S", W: "N"};
+
+// Two lanes per approach (LANES/2): the inner lane (closer to the
+// centerline) is the left-turn-or-straight lane, the outer lane is
+// straight-or-right — same convention real intersections use, and it's
+// what lets a turning car keep its lane NUMBER across the turn (so its
+// offset from the road centerline, and thus its turn radius, stays
+// identical on both sides — see spawnCar/carWorldPos).
+const LANE_TURNS = [["left", "straight"], ["straight", "right"]];
+
 function carAxisOffset(lane) {
   const w = ROAD() / LANES;
   return w * (lane + 0.5) - w * 0.15;
 }
 
+// Mostly-straight traffic with an occasional turn, weighted so the sim
+// doesn't turn into a permanent gridlock of crossing paths.
+function pickTurn() {
+  const r = Math.random();
+  if (r < 0.16) return "left";
+  if (r < 0.32) return "right";
+  return "straight";
+}
+
 function spawnCar(dir) {
-  const lane = Math.floor(Math.random() * (LANES / 2));
-  const colors = ["#f5ecd8", "#f0c15c", "#9cc4d4", "#e8886a", "#c3a8d1"];
+  const turn = pickTurn();
+  // Lane is picked to match the turn, not the other way round — a left
+  // turn must spawn in the inner (left/straight) lane, a right turn in
+  // the outer (straight/right) lane, straight traffic can use either.
+  const lane = turn === "left" ? 0 : turn === "right" ? 1 : Math.floor(Math.random() * (LANES / 2));
+  const newDir = turn === "left" ? LEFT[dir] : turn === "right" ? RIGHT[dir] : dir;
+  const radius = carAxisOffset(lane);
+  // Period-correct 1950s American pastels — turquoise, coral, mint,
+  // butter yellow, powder blue — the palette every reference photo of
+  // the era shows paired with white/cream trim.
+  const colors = ["#6fb8b0", "#e8886a", "#8fbf8a", "#f0c15c", "#8fa8cf", "#e6a4b4"];
   const speedVal = SIZE * (0.10 + Math.random() * 0.02);
   const car = {
     id: nextCarId++, dir, lane,
+    // How far before/after center the curve phase spans. The Bezier
+    // control point (see carWorldPos) is only geometrically valid — on
+    // the correct side to preserve entry/exit heading — once this
+    // exceeds `radius`; a right turn's radius is the OUTER lane's offset
+    // (can be fairly large), so a small fixed multiple of it (as opposed
+    // to, say, a flat margin) was overshooting past the stop line for
+    // wide lanes, leaving barely any visible curve inside the box —
+    // which read as the car just driving straight through.
+    turn, newDir, radius, turnR: radius * 1.3,
     pos: -SIZE * 0.62,
     speed: speedVal,
     curSpeed: speedVal, // eased toward 0 (or back to `speed`) instead of snapping — see stepCars
@@ -1082,14 +1250,51 @@ function spawnCar(dir) {
   startCarEngine(car);
 }
 
+// A turning car travels straight in its original lane until `pos` reaches
+// -turnR, then follows a quadratic Bezier through the box, then continues
+// straight in its new lane past +turnR. Left and right turns need
+// genuinely different curve shapes — a left turn sweeps a wide arc past
+// the middle, a right hugs the near corner tightly — so rather than
+// special-case each one, the curve's control point is derived the same
+// way for both: it's wherever the original lane's own straight line
+// (extended forward) meets the destination lane's straight line (extended
+// backward). A quadratic Bezier through that point is tangent to each
+// lane at the point it meets it, which is exactly what keeps the car's
+// heading continuous with its straight-line approach and departure — no
+// heading jump, which is what was showing up as cars spinning through a
+// U-turn mid-intersection.
 function carWorldPos(car) {
-  const t = TRAVEL[car.dir], p = PERP[car.dir];
-  const off = carAxisOffset(car.lane);
-  return {
-    x: cx + t.x * car.pos + p.x * off,
-    y: cy + t.y * car.pos + p.y * off,
-    ang: ANGLE[car.dir],
-  };
+  if (car.turn === "straight" || car.pos < -car.turnR) {
+    const t = TRAVEL[car.dir], p = PERP[car.dir];
+    const off = carAxisOffset(car.lane);
+    return {
+      x: cx + t.x * car.pos + p.x * off,
+      y: cy + t.y * car.pos + p.y * off,
+      ang: ANGLE[car.dir],
+    };
+  }
+  if (car.pos > car.turnR) {
+    const t = TRAVEL[car.newDir], p = PERP[car.newDir];
+    return {
+      x: cx + t.x * car.pos + p.x * car.radius,
+      y: cy + t.y * car.pos + p.y * car.radius,
+      ang: ANGLE[car.newDir],
+    };
+  }
+  const R = car.turnR, r = car.radius;
+  const T1 = TRAVEL[car.dir], P1 = PERP[car.dir];
+  const T2 = TRAVEL[car.newDir], P2 = PERP[car.newDir];
+  const ex = P1.x * r - T1.x * R, ey = P1.y * r - T1.y * R; // enter turn at original-lane pos = -R
+  const xx = P2.x * r + T2.x * R, xy = P2.y * r + T2.y * R; // exit turn at new-lane pos = +R
+  const dx = xx - ex, dy = xy - ey;
+  const u = T1.x * dx + T1.y * dy; // (dx,dy) decomposed onto the perpendicular T1/T2 axes
+  const cx2 = ex + T1.x * u, cy2 = ey + T1.y * u; // control point: where both lanes' lines meet
+  const t = (car.pos + R) / (2 * R), mt = 1 - t;
+  const px = mt * mt * ex + 2 * mt * t * cx2 + t * t * xx;
+  const py = mt * mt * ey + 2 * mt * t * cy2 + t * t * xy;
+  const dxT = 2 * mt * (cx2 - ex) + 2 * t * (xx - cx2);
+  const dyT = 2 * mt * (cy2 - ey) + 2 * t * (xy - cy2);
+  return {x: cx + px, y: cy + py, ang: Math.atan2(dyT, dxT)};
 }
 
 function stepCars(dt) {
@@ -1211,10 +1416,12 @@ function stepCars(dt) {
   cars = cars.filter(c => c.pos < SIZE * 0.62);
 }
 
-// No turns yet, so straight streams only ever meet inside the box — which
-// happens when the player leaves two crossing lights green at once. That's
-// the actual risk being modeled: independent manual lights only stay safe
-// if you keep perpendicular lanes from going green together.
+// Straight streams only ever meet inside the box, which happens when the
+// player leaves two crossing lights green at once — turning cars add a
+// second way to collide (swinging into a same/opposite-dir car's path).
+// Either way that's the actual risk being modeled: independent manual
+// lights only stay safe if you keep conflicting approaches from going
+// green together.
 // Cars that crash are removed from the sim immediately — a lingering wreck
 // used to sit in the lane as a physical obstacle, which just caused a
 // second pileup as other traffic ran into IT. The crash still gets a
@@ -1240,8 +1447,13 @@ function checkCollisions(dt) {
     for (let j = i + 1; j < cars.length; j++) {
       const b = cars[j];
       // same lane, or opposite-direction parallel lanes — neither pair
-      // ever actually crosses paths, so skip both.
-      if (toRemove.has(b) || a.dir === b.dir || OPPOSITE_DIR[a.dir] === b.dir) continue;
+      // ever actually crosses paths, so skip both. Only holds when both
+      // cars are going straight, though — a turning car swings out of its
+      // own lane and can cross a same/opposite-dir car's path, so this
+      // shortcut can't apply to it.
+      if (toRemove.has(b)) continue;
+      const bothStraight = a.turn === "straight" && b.turn === "straight";
+      if (bothStraight && (a.dir === b.dir || OPPOSITE_DIR[a.dir] === b.dir)) continue;
       const pb = carWorldPos(b);
       // A generous full-length threshold — two fast cars crossing at
       // right angles can close more distance in one frame than a tight
@@ -1301,8 +1513,11 @@ for (const dir of DIRS) {
 const HOUSING_AXIS = {N: "v", S: "v", E: "h", W: "h"};
 
 // How far each light sits into its corner block, as a fraction of the
-// block's width — smaller means closer to the road.
-const LIGHT_INSET = {N: 0.24, S: 0.24, E: 0.24, W: 0.24};
+// block's width — smaller means closer to the road. High enough to clear
+// the buildings' deepest possible reach (see BUILDING_RUN_LEN/packBuildings'
+// `depth`), so the light housing sits out past the storefronts, near the
+// actual corner, rather than overlapping them.
+const LIGHT_INSET = {N: 0.8, S: 0.8, E: 0.8, W: 0.8};
 
 function lightGeometry(dir) {
   const corner = LIGHT_CORNER[dir];
@@ -1380,6 +1595,34 @@ function drawArrow(x, y, dx, dy) {
   ctx.fill();
 }
 
+// A shaft that curves toward the turn side and ends in an arrowhead
+// pointing that way — the same weight/alpha as drawArrow's straight
+// glyph so the two read as one family of road-paint markings. `side`
+// is -1 for a left-bending glyph, +1 for right, relative to (dx,dy).
+function drawBentArrow(x, y, dx, dy, side) {
+  const sx = side < 0 ? dy : -dy, sy = side < 0 ? -dx : dx;
+  const len = SIZE * 0.013, hw = SIZE * 0.004;
+
+  ctx.strokeStyle = "rgba(255,255,255,0.55)";
+  ctx.lineWidth = SIZE * 0.003;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x - dx * len, y - dy * len);
+  ctx.quadraticCurveTo(x, y, x + sx * len * 0.85, y + sy * len * 0.85);
+  ctx.stroke();
+
+  const tipX = x + sx * len * 0.85, tipY = y + sy * len * 0.85;
+  const backX = tipX - sx * len * 0.3, backY = tipY - sy * len * 0.3;
+  const px = -sy, py = sx;
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(backX + px * hw, backY + py * hw);
+  ctx.lineTo(backX - px * hw, backY - py * hw);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.fill();
+}
+
 function drawLight(dir) {
   const {x: cxr, y: cyr, w, h, horizontal} = lightGeometry(dir);
   const lit = lightLitColors(dir);
@@ -1412,9 +1655,16 @@ function drawLight(dir) {
   ctx.shadowBlur = 0;
 
   // directional arrow just past the housing, showing which lane this
-  // light actually governs (the direction that lane's traffic travels)
+  // light actually governs (the direction that lane's traffic travels) —
+  // plus a small left/right glyph flanking it, since this one light
+  // governs both of that approach's lanes and (per LANE_TURNS) one of
+  // them permits a turn each way.
   const [adx, ady] = ARROW_DIR[dir];
-  drawArrow(cxr, cyr + h / 2 + SIZE * 0.016, adx, ady);
+  const abx = cxr, aby = cyr + h / 2 + SIZE * 0.016;
+  drawArrow(abx, aby, adx, ady);
+  const apx = -ady, apy = adx;
+  drawBentArrow(abx - apx * SIZE * 0.016, aby - apy * SIZE * 0.016, adx, ady, -1);
+  drawBentArrow(abx + apx * SIZE * 0.016, aby + apy * SIZE * 0.016, adx, ady, 1);
   ctx.restore();
 
   if (performance.now() < lights[dir].badgeUntil) {
@@ -1493,7 +1743,153 @@ const CORNER_TINT = {
   SW: "#201828", // soft purple, echoes --block-edge
 };
 
+// Storefronts lining each side of both roads — mostly plain stores, with
+// an occasional cafe or bar picked out by a warmer/darker awning color.
+// Sizes are stored as SIZE-multipliers (not raw pixels), and the actual
+// random pick of widths/types/gaps happens once here at load, not per
+// frame — like the cars' colors, the "town" needs to hold still and feel
+// like a real place, not reroll itself every draw.
+const BUILDING_ROOF = ["#5a4636", "#4a3d33", "#6b5344", "#3f3a32", "#544838"];
+const BUILDING_KINDS = [
+  {weight: 6, awning: "#7a6a52"}, // store
+  {weight: 2, awning: "#a4443a"}, // cafe
+  {weight: 1, awning: "#5a2a3a"}, // bar
+];
+function pickBuildingKind() {
+  const total = BUILDING_KINDS.reduce((s, k) => s + k.weight, 0);
+  let r = Math.random() * total;
+  for (const k of BUILDING_KINDS) { if ((r -= k.weight) < 0) return k; }
+  return BUILDING_KINDS[0];
+}
+// How far each straight run of buildings has to fill: half the canvas
+// minus half the road width minus a sidewalk gap on the road side and a
+// margin on the canvas-edge side — fixed as a fraction of SIZE, so every
+// run packs identically regardless of actual canvas pixel size.
+const BUILDING_RUN_LEN = 0.5 - 0.15 - 0.02 - 0.02;
+// Roughly one "pixel" cell as a fraction of SIZE — each building's roof
+// gets tiled into a grid of these instead of one flat rect, each cell's
+// shade jittered a bit, so it reads as a coarse pixel-art texture rather
+// than clean vector fills. The outermost row/column away from the road
+// (the building's skyline edge, the one silhouetted against open block
+// tint rather than sitting flush against the sidewalk) randomly drops
+// cells too, so that edge comes out jagged instead of a ruler-straight line.
+const BUILDING_CELL = 0.011;
+function packBuildings(maxLen) {
+  const list = [];
+  let used = 0;
+  while (used < maxLen) {
+    const width = 0.045 + Math.random() * 0.03;
+    if (used + width > maxLen) break;
+    const gap = 0.008 + Math.random() * 0.008;
+    const depth = 0.05 + Math.random() * 0.035;
+    const along = Math.max(3, Math.round(width / BUILDING_CELL));
+    const across = Math.max(3, Math.round(depth / BUILDING_CELL));
+    list.push({
+      offset: used, width, depth, along, across,
+      texture: Array.from({length: along * across}, () => (Math.random() - 0.5) * 16),
+      farJitter: Array.from({length: along}, () => Math.random()),
+      roof: BUILDING_ROOF[Math.floor(Math.random() * BUILDING_ROOF.length)],
+      awning: pickBuildingKind().awning,
+    });
+    used += width + gap;
+  }
+  return list;
+}
+const buildingLayout = {
+  north: {left: packBuildings(BUILDING_RUN_LEN), right: packBuildings(BUILDING_RUN_LEN)},
+  south: {left: packBuildings(BUILDING_RUN_LEN), right: packBuildings(BUILDING_RUN_LEN)},
+  west: {top: packBuildings(BUILDING_RUN_LEN), bottom: packBuildings(BUILDING_RUN_LEN)},
+  east: {top: packBuildings(BUILDING_RUN_LEN), bottom: packBuildings(BUILDING_RUN_LEN)},
+};
+
+// `side` is which road edge this run faces (its buildings extend away
+// from that edge, into the block); `baseline` is that edge's fixed
+// coordinate and `start` is where the run begins along the road.
+function drawBuildingRun(list, side, baseline, start) {
+  for (const b of list) {
+    const off = start + b.offset * SIZE, width = b.width * SIZE, depth = b.depth * SIZE;
+    const stripW = SIZE * 0.01;
+    // `horiz`: the building's along-the-road axis is x (true, for N/S
+    // runs) or y (false, for W/E runs). `farAtMin`: whether the skyline
+    // (away-from-road) edge sits at the smaller or larger coordinate.
+    let x, y, w, h, awn, horiz, farAtMin;
+    if (side === "N") { x = off; w = width; y = baseline - depth; h = depth; awn = [x, baseline - stripW, w, stripW]; horiz = true; farAtMin = true; }
+    else if (side === "S") { x = off; w = width; y = baseline; h = depth; awn = [x, baseline, w, stripW]; horiz = true; farAtMin = false; }
+    else if (side === "W") { y = off; h = width; x = baseline - depth; w = depth; awn = [baseline - stripW, y, stripW, h]; horiz = false; farAtMin = true; }
+    else { y = off; h = width; x = baseline; w = depth; awn = [baseline, y, stripW, h]; horiz = false; farAtMin = false; }
+
+    const cellAlong = (horiz ? w : h) / b.along;
+    const cellAcross = (horiz ? h : w) / b.across;
+    for (let ci = 0; ci < b.across; ci++) {
+      const isFarRow = farAtMin ? ci === 0 : ci === b.across - 1;
+      for (let ai = 0; ai < b.along; ai++) {
+        if (isFarRow && b.farJitter[ai] < 0.22) continue;
+        ctx.fillStyle = shadeHex(b.roof, b.texture[ci * b.along + ai]);
+        if (horiz) ctx.fillRect(x + ai * cellAlong, y + ci * cellAcross, cellAlong + 0.6, cellAcross + 0.6);
+        else ctx.fillRect(x + ci * cellAcross, y + ai * cellAlong, cellAcross + 0.6, cellAlong + 0.6);
+      }
+    }
+
+    // awning as alternating light/dark blocks (a striped canopy) instead
+    // of one flat bar — same pixel-block treatment as the roof above.
+    const [ax, ay, aw, ah] = awn;
+    const awningCells = Math.max(3, Math.round((horiz ? w : h) / (SIZE * 0.012)));
+    for (let i = 0; i < awningCells; i++) {
+      ctx.fillStyle = i % 2 === 0 ? b.awning : shadeHex(b.awning, -18);
+      if (horiz) ctx.fillRect(ax + (i / awningCells) * aw, ay, aw / awningCells + 0.6, ah);
+      else ctx.fillRect(ax, ay + (i / awningCells) * ah, aw, ah / awningCells + 0.6);
+    }
+
+    // one small warm-lit window per building — enough to read as an
+    // occupied storefront at night without turning into pixel clutter.
+    ctx.fillStyle = "rgba(255,214,140,0.55)";
+    const dot = Math.min(w, h) * 0.16;
+    ctx.fillRect(x + w / 2 - dot / 2, y + h / 2 - dot / 2, dot, dot);
+  }
+}
+
+function drawBuildings() {
+  const half = ROAD() / 2, marginEdge = SIZE * 0.02, marginRoad = SIZE * SIDEWALK_W;
+  drawBuildingRun(buildingLayout.north.left, "N", cy - half - marginRoad, marginEdge);
+  drawBuildingRun(buildingLayout.north.right, "N", cy - half - marginRoad, cx + half + marginRoad);
+  drawBuildingRun(buildingLayout.south.left, "S", cy + half + marginRoad, marginEdge);
+  drawBuildingRun(buildingLayout.south.right, "S", cy + half + marginRoad, cx + half + marginRoad);
+  drawBuildingRun(buildingLayout.west.top, "W", cx - half - marginRoad, marginEdge);
+  drawBuildingRun(buildingLayout.west.bottom, "W", cx - half - marginRoad, cy + half + marginRoad);
+  drawBuildingRun(buildingLayout.east.top, "E", cx + half + marginRoad, marginEdge);
+  drawBuildingRun(buildingLayout.east.bottom, "E", cx + half + marginRoad, cy + half + marginRoad);
+}
+
 /* ---------------- Roads & crossings ---------------- */
+// A small noise tile, painted once and reused as a repeating fill
+// pattern, instead of one flat asphalt color — reads as worn, speckled
+// blacktop rather than a clean vector fill. Built lazily (needs a live
+// 2D context to paint into and to turn into a pattern), then cached.
+let asphaltPattern = null;
+function getAsphaltPattern() {
+  if (asphaltPattern) return asphaltPattern;
+  const S = 40;
+  const tile = document.createElement("canvas");
+  tile.width = S; tile.height = S;
+  const tctx = tile.getContext("2d");
+  tctx.fillStyle = css("--asphalt") || "#1c1812";
+  tctx.fillRect(0, 0, S, S);
+  // Speckles that overflow an edge get a wrapped copy drawn on the
+  // opposite side, so a tile edge never lands mid-speckle — a plain
+  // random scatter tiled naively shows up as a visible seam grid once
+  // repeated across the whole road.
+  for (let i = 0; i < 150; i++) {
+    const w = 1 + Math.random(), h = 1 + Math.random();
+    const x = Math.random() * S, y = Math.random() * S;
+    tctx.fillStyle = Math.random() < 0.55 ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.06)";
+    const xs = x + w > S ? [x, x - S] : [x];
+    const ys = y + h > S ? [y, y - S] : [y];
+    for (const xx of xs) for (const yy of ys) tctx.fillRect(xx, yy, w, h);
+  }
+  asphaltPattern = ctx.createPattern(tile, "repeat");
+  return asphaltPattern;
+}
+
 function drawRoadSurface() {
   const half = ROAD() / 2;
   ctx.fillStyle = CORNER_TINT.NW;
@@ -1505,9 +1901,23 @@ function drawRoadSurface() {
   ctx.fillStyle = CORNER_TINT.SE;
   ctx.fillRect(cx + half, cy + half, SIZE - (cx + half), SIZE - (cy + half));
 
-  ctx.fillStyle = css("--asphalt");
+  ctx.fillStyle = getAsphaltPattern();
   ctx.fillRect(cx - ROAD() / 2, 0, ROAD(), SIZE);
   ctx.fillRect(0, cy - ROAD() / 2, SIZE, ROAD());
+}
+
+// A light-grey curb strip framing the road on all four sides, sitting in
+// the same gap the buildings' `marginRoad` already leaves clear (see
+// drawBuildings) — so it reads as the sidewalk those storefronts front
+// onto, rather than empty block tint between road and buildings.
+const SIDEWALK_W = 0.02; // matches BUILDING drawBuildings' marginRoad, as a SIZE-fraction
+function drawSidewalks() {
+  const half = ROAD() / 2, sw = SIZE * SIDEWALK_W;
+  ctx.fillStyle = "rgba(168,166,158,0.55)";
+  ctx.fillRect(0, cy - half - sw, SIZE, sw);
+  ctx.fillRect(0, cy + half, SIZE, sw);
+  ctx.fillRect(cx - half - sw, 0, sw, SIZE);
+  ctx.fillRect(cx + half, 0, sw, SIZE);
 }
 
 // Lane dividers, stop lines, and directional arrows — all "markings",
@@ -1552,7 +1962,9 @@ function drawRoadMarkings() {
 
 // Pavement direction arrows — one per lane, same glyph as the light
 // arrows — so every lane visibly shows which way its own traffic (and
-// its light) moves, not just the four housings at the corners.
+// its light) moves, not just the four housings at the corners. The lane
+// closest to the stop line also gets a small bent glyph showing which
+// turn (if any) that lane permits, matching LANE_TURNS/spawnCar.
 function drawLaneArrows() {
   const stopLine = STOP_LINE();
   for (const dir of DIRS) {
@@ -1564,6 +1976,11 @@ function drawLaneArrows() {
         const y = cy - t.y * dist + p.y * off;
         drawArrow(x, y, t.x, t.y);
       }
+      const turns = LANE_TURNS[lane];
+      const bendSide = turns.includes("left") ? -1 : 1;
+      const bx = cx - t.x * (stopLine + SIZE * 0.02) + p.x * off;
+      const by = cy - t.y * (stopLine + SIZE * 0.02) + p.y * off;
+      drawBentArrow(bx, by, t.x, t.y, bendSide);
     }
   }
 }
@@ -1609,12 +2026,40 @@ function drawCars() {
     ctx.translate(wp.x, wp.y);
     ctx.rotate(wp.ang);
 
-    // wheels — small dark blocks peeking past the body at front and rear
+    // wheels — small dark blocks peeking past the body at front and rear,
+    // each with a whitewall stripe (a 1950s tire, not a modern black one)
     ctx.fillStyle = "#111114";
     const wheelW = L * 0.15, wheelH = Wd * 0.18;
     for (const wx of [-L * 0.28, L * 0.28]) {
       ctx.fillRect(wx - wheelW / 2, -Wd / 2 - wheelH * 0.32, wheelW, wheelH);
       ctx.fillRect(wx - wheelW / 2, Wd / 2 - wheelH * 0.68, wheelW, wheelH);
+    }
+    ctx.fillStyle = "rgba(232,226,208,0.85)";
+    const wwH = wheelH * 0.22;
+    for (const wx of [-L * 0.28, L * 0.28]) {
+      ctx.fillRect(wx - wheelW / 2, -Wd / 2 - wheelH * 0.32 + wheelH * 0.55, wheelW, wwH);
+      ctx.fillRect(wx - wheelW / 2, Wd / 2 - wheelH * 0.68 + wheelH * 0.55, wheelW, wwH);
+    }
+
+    // tailfins — swept-back, Cadillac-style points at the rear corners,
+    // drawn before the body so only their tips show past it, each capped
+    // with a small red lens standing in for the integrated taillight
+    // those fins actually carried. The single most recognizable 1950s
+    // American-car cue in silhouette alone.
+    ctx.fillStyle = car.color;
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(-L / 2 + L * 0.1, side * (Wd / 2 - Wd * 0.02));
+      ctx.lineTo(-L / 2 - L * 0.16, side * (Wd / 2 + Wd * 0.2));
+      ctx.lineTo(-L / 2 - L * 0.02, side * (Wd / 2 + Wd * 0.04));
+      ctx.lineTo(-L / 2 + L * 0.04, side * (Wd / 2 - Wd * 0.1));
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#c23b2e";
+      ctx.beginPath();
+      ctx.arc(-L / 2 - L * 0.12, side * (Wd / 2 + Wd * 0.15), Wd * 0.06, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = car.color;
     }
 
     // body
@@ -1623,18 +2068,61 @@ function drawCars() {
     ctx.roundRect(-L / 2, -Wd / 2, L, Wd, Wd * 0.36);
     ctx.fill();
 
+    // two-tone lower panel — a contrasting cream sweep along the rocker,
+    // the other half of the classic 1950s two-tone paint job (the cabin
+    // panel below stands in for the contrasting roof color) — with a
+    // bright chrome spear tracing the break between the two tones,
+    // exactly the trim line every reference photo of the era shows.
+    const spearY = Wd * 0.13;
+    ctx.fillStyle = "#e8e2d0";
+    ctx.beginPath();
+    ctx.roundRect(-L / 2 + L * 0.03, spearY + Wd * 0.02, L - L * 0.06, Wd / 2 - Wd * 0.17, Wd * 0.1);
+    ctx.fill();
+    ctx.fillStyle = "#e4e7ea";
+    ctx.fillRect(-L / 2 + L * 0.03, spearY, L - L * 0.06, Wd * 0.014);
+
     // cabin — a darker inset panel so the body reads as more than a block
     ctx.fillStyle = "rgba(0,0,0,0.2)";
     ctx.beginPath();
     ctx.roundRect(-L * 0.1, -Wd / 2 + Wd * 0.16, L * 0.4, Wd - Wd * 0.32, Wd * 0.18);
     ctx.fill();
 
+    // chrome front bumper + wide grille bar, and a plainer chrome rear
+    // bumper — the front end carries most of a '50s car's chrome, so it
+    // gets more than a matching strip at both ends.
+    ctx.fillStyle = "#d8dce0";
+    ctx.fillRect(L / 2 - L * 0.02, -Wd * 0.32, L * 0.05, Wd * 0.64);
+    ctx.fillRect(-L / 2 - L * 0.03, -Wd * 0.32, L * 0.05, Wd * 0.64);
+    ctx.fillRect(L / 2 - L * 0.09, -Wd * 0.28, L * 0.05, Wd * 0.56);
+    ctx.fillStyle = "rgba(20,20,23,0.5)";
+    for (let i = -2; i <= 2; i++) {
+      ctx.fillRect(L / 2 - L * 0.085, i * Wd * 0.1 - Wd * 0.01, L * 0.04, Wd * 0.02);
+    }
+
     const lampW = L * 0.09, lampH = Wd * 0.26;
 
+    // Turn signal — blinks the corner lamps on the turn side (local -y is
+    // the car's left, +y its right; see carWorldPos's rotation math) for
+    // as long as the car hasn't finished its turn arc yet. Stops as soon
+    // as `pos` passes turnR, same as a real indicator cancelling once
+    // the wheel straightens back out.
+    const turning = car.turn !== "straight" && car.pos < car.turnR;
+    const blinkOn = turning && Math.floor(performance.now() / 400) % 2 === 0;
+    const blinkY = car.turn === "left" ? -1 : 1;
+
     // headlights, front corners
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    ctx.fillRect(L / 2 - lampW - 1, -Wd / 2 + 1, lampW, lampH);
-    ctx.fillRect(L / 2 - lampW - 1, Wd / 2 - lampH - 1, lampW, lampH);
+    for (const side of [-1, 1]) {
+      const y = side < 0 ? -Wd / 2 + 1 : Wd / 2 - lampH - 1;
+      if (blinkOn && side === blinkY) {
+        ctx.fillStyle = "#ffb020";
+        ctx.shadowColor = "#ffb020"; ctx.shadowBlur = SIZE * 0.012;
+      } else {
+        ctx.fillStyle = "rgba(255,255,255,0.9)";
+        ctx.shadowBlur = 0;
+      }
+      ctx.fillRect(L / 2 - lampW - 1, y, lampW, lampH);
+    }
+    ctx.shadowBlur = 0;
 
     // taillights, rear corners — dim red normally; while braking or sitting
     // stopped at a light they go bright AND throw a soft red glow onto the
@@ -1654,12 +2142,19 @@ function drawCars() {
       ctx.arc(-L / 2, 0, glowR, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-      ctx.fillStyle = "#e0654f";
-    } else {
-      ctx.fillStyle = "rgba(140,60,45,0.6)";
     }
-    ctx.fillRect(-L / 2 - 1, -Wd / 2 + 1, lampW, lampH);
-    ctx.fillRect(-L / 2 - 1, Wd / 2 - lampH - 1, lampW, lampH);
+    for (const side of [-1, 1]) {
+      const y = side < 0 ? -Wd / 2 + 1 : Wd / 2 - lampH - 1;
+      if (blinkOn && side === blinkY) {
+        ctx.fillStyle = "#ffb020";
+        ctx.shadowColor = "#ffb020"; ctx.shadowBlur = SIZE * 0.012;
+      } else {
+        ctx.fillStyle = braking ? "#e0654f" : "rgba(140,60,45,0.6)";
+        ctx.shadowBlur = 0;
+      }
+      ctx.fillRect(-L / 2 - 1, y, lampW, lampH);
+    }
+    ctx.shadowBlur = 0;
 
     ctx.restore();
 
@@ -1727,13 +2222,15 @@ function drawCrashBursts() {
 
 function draw() {
   drawRoadSurface();
+  drawSidewalks();
+  drawBuildings();
 
   // Markings stay near-invisible by default — it's night, no ambient
   // street lighting — and only read clearly where a car's headlight
   // beam actually falls on them, redrawn at full strength clipped to
   // each cone below.
   ctx.save();
-  ctx.globalAlpha = 0.1;
+  ctx.globalAlpha = 0.28;
   drawRoadMarkings();
   ctx.restore();
 
