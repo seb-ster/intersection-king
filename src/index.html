@@ -14,11 +14,13 @@
             align-items: center;
             min-height: 100vh;
             font-family: Arial, sans-serif;
+            overflow: hidden;
         }
         canvas {
             border: 2px solid #333;
             background: #0a0a0a;
             display: block;
+            margin: auto;
         }
     </style>
 </head>
@@ -148,31 +150,52 @@
             }
 
             draw() {
+                ctx.save();
+
+                // Rotate based on direction
+                ctx.translate(this.x, this.y);
+                switch (this.direction) {
+                    case 'north':
+                        ctx.rotate(Math.PI * 1.5);  // 270 degrees
+                        break;
+                    case 'south':
+                        ctx.rotate(Math.PI * 0.5);  // 90 degrees
+                        break;
+                    case 'east':
+                        ctx.rotate(0);  // 0 degrees
+                        break;
+                    case 'west':
+                        ctx.rotate(Math.PI);  // 180 degrees
+                        break;
+                }
+
                 // Car body
                 ctx.fillStyle = this.color;
-                ctx.fillRect(this.x - CAR_WIDTH / 2, this.y - CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT);
+                ctx.fillRect(-CAR_WIDTH / 2, -CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT);
 
                 // Car outline
                 ctx.strokeStyle = '#222';
                 ctx.lineWidth = 2;
-                ctx.strokeRect(this.x - CAR_WIDTH / 2, this.y - CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT);
+                ctx.strokeRect(-CAR_WIDTH / 2, -CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT);
 
                 // Windows
                 ctx.fillStyle = '#87ceeb';
                 ctx.globalAlpha = 0.6;
-                ctx.fillRect(this.x - CAR_WIDTH / 2 + 4, this.y - CAR_HEIGHT / 2 + 4, CAR_WIDTH / 3 - 2, CAR_HEIGHT / 2 - 6);
-                ctx.fillRect(this.x + CAR_WIDTH / 2 - 8 - CAR_WIDTH / 3, this.y - CAR_HEIGHT / 2 + 4, CAR_WIDTH / 3 - 2, CAR_HEIGHT / 2 - 6);
+                ctx.fillRect(-CAR_WIDTH / 2 + 4, -CAR_HEIGHT / 2 + 4, CAR_WIDTH / 3 - 2, CAR_HEIGHT / 2 - 6);
+                ctx.fillRect(CAR_WIDTH / 2 - 8 - CAR_WIDTH / 3, -CAR_HEIGHT / 2 + 4, CAR_WIDTH / 3 - 2, CAR_HEIGHT / 2 - 6);
                 ctx.globalAlpha = 1.0;
 
                 // Headlights (front)
                 ctx.fillStyle = this.waiting ? '#ffff99' : '#fff';
-                ctx.fillRect(this.x - CAR_WIDTH / 2 + 2, this.y - 6, 4, 3);
-                ctx.fillRect(this.x - CAR_WIDTH / 2 + 2, this.y + 3, 4, 3);
+                ctx.fillRect(CAR_WIDTH / 2 - 6, -6, 4, 3);
+                ctx.fillRect(CAR_WIDTH / 2 - 6, 3, 4, 3);
 
                 // Taillights (back)
                 ctx.fillStyle = this.waiting ? '#ff9999' : '#ff4444';
-                ctx.fillRect(this.x + CAR_WIDTH / 2 - 6, this.y - 6, 4, 3);
-                ctx.fillRect(this.x + CAR_WIDTH / 2 - 6, this.y + 3, 4, 3);
+                ctx.fillRect(-CAR_WIDTH / 2 + 2, -6, 4, 3);
+                ctx.fillRect(-CAR_WIDTH / 2 + 2, 3, 4, 3);
+
+                ctx.restore();
             }
 
             isOffScreen() {
