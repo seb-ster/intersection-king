@@ -51,6 +51,151 @@
         let versionCopyTimer = null;
         let showVersionCopyLabel = false;
 
+        // Car system
+        const cars = [];
+        let carIdCounter = 0;
+        const CAR_WIDTH = 30;
+        const CAR_HEIGHT = 20;
+        const CAR_SPEED = 3;  // pixels per frame
+        const SPAWN_INTERVAL = 2000;  // ms between spawns
+        let lastSpawnTime = Date.now();
+        const carColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7'];
+
+        class Car {
+            constructor(id, direction, laneIndex) {
+                this.id = id;
+                this.direction = direction;
+                this.laneIndex = laneIndex;
+                this.speed = CAR_SPEED;
+                this.waiting = false;
+
+                const roadHalf = ROAD_WIDTH / 2;
+                const laneX = CENTER - roadHalf + (laneIndex + 0.5) * LANE_WIDTH;
+                const laneY = CENTER - roadHalf + (laneIndex + 0.5) * LANE_WIDTH;
+
+                // Position based on direction
+                switch (direction) {
+                    case 'north':
+                        this.x = laneX;
+                        this.y = canvas.height + 50;
+                        this.vx = 0;
+                        this.vy = -this.speed;
+                        break;
+                    case 'south':
+                        this.x = laneX;
+                        this.y = -50;
+                        this.vx = 0;
+                        this.vy = this.speed;
+                        break;
+                    case 'east':
+                        this.x = -50;
+                        this.y = laneY;
+                        this.vx = this.speed;
+                        this.vy = 0;
+                        break;
+                    case 'west':
+                        this.x = canvas.width + 50;
+                        this.y = laneY;
+                        this.vx = -this.speed;
+                        this.vy = 0;
+                        break;
+                }
+
+                this.color = carColors[id % carColors.length];
+            }
+
+            update() {
+                // Check if should stop at red light
+                const stopLineOffset = STOP_LINE_OFFSET;
+                const roadHalf = ROAD_WIDTH / 2;
+                const stopLineN = CENTER - roadHalf - stopLineOffset;
+                const stopLineS = CENTER + roadHalf + stopLineOffset;
+                const stopLineE = CENTER + roadHalf + stopLineOffset;
+                const stopLineW = CENTER - roadHalf - stopLineOffset;
+
+                let shouldStop = false;
+                switch (this.direction) {
+                    case 'north':
+                        if (this.y < stopLineS + 50 && this.y > stopLineS - 50) {
+                            shouldStop = lights.north.state === 'red';
+                        }
+                        break;
+                    case 'south':
+                        if (this.y < stopLineN + 50 && this.y > stopLineN - 50) {
+                            shouldStop = lights.south.state === 'red';
+                        }
+                        break;
+                    case 'east':
+                        if (this.x < stopLineE + 50 && this.x > stopLineE - 50) {
+                            shouldStop = lights.east.state === 'red';
+                        }
+                        break;
+                    case 'west':
+                        if (this.x < stopLineW + 50 && this.x > stopLineW - 50) {
+                            shouldStop = lights.west.state === 'red';
+                        }
+                        break;
+                }
+
+                this.waiting = shouldStop;
+
+                // Move if not stopped
+                if (!shouldStop) {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x - CAR_WIDTH / 2, this.y - CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT);
+
+                // Draw outline
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(this.x - CAR_WIDTH / 2, this.y - CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT);
+
+                // Draw headlights if waiting
+                if (this.waiting) {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(this.x - CAR_WIDTH / 2 + 2, this.y - 4, 4, 4);
+                    ctx.fillRect(this.x - CAR_WIDTH / 2 + 2, this.y + 2, 4, 4);
+                }
+            }
+
+            isOffScreen() {
+                return this.x < -100 || this.x > canvas.width + 100 ||
+                       this.y < -100 || this.y > canvas.height + 100;
+            }
+        }
+
+        function spawnCar() {
+            const now = Date.now();
+            if (now - lastSpawnTime > SPAWN_INTERVAL) {
+                const directions = ['north', 'south', 'east', 'west'];
+                const direction = directions[Math.floor(Math.random() * directions.length)];
+                const laneIndex = Math.floor(Math.random() * 3);
+
+                cars.push(new Car(carIdCounter++, direction, laneIndex));
+                lastSpawnTime = now;
+            }
+        }
+
+        function updateCars() {
+            for (let i = cars.length - 1; i >= 0; i--) {
+                cars[i].update();
+                if (cars[i].isOffScreen()) {
+                    cars.splice(i, 1);
+                }
+            }
+        }
+
+        function drawCars() {
+            for (const car of cars) {
+                car.draw();
+            }
+        }
+
         function draw() {
             // Clear canvas
             ctx.fillStyle = '#0a0a0a';
@@ -287,8 +432,16 @@
 
         function update() {
             draw();
+            spawnCar();
+            updateCars();
+            drawCars();
             drawAllTrafficLights();
             drawVersionChip();
+        }
+
+        function animate() {
+            update();
+            requestAnimationFrame(animate);
         }
 
         function cycleState(currentState) {
@@ -421,8 +574,8 @@
             }
         });
 
-        // Initial draw
-        update();
+        // Start animation loop
+        animate();
     </script>
 </body>
 </html>
