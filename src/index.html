@@ -140,12 +140,12 @@
                 const stopZone = 100;
                 switch (this.direction) {
                     case 'north':
-                        if (this.y > stopLineN - STOP_LINE_BACK - stopZone && this.y < stopLineN - STOP_LINE_BACK + stopZone) {
+                        if (this.y > stopLineN + STOP_LINE_BACK - stopZone && this.y < stopLineN + STOP_LINE_BACK + stopZone) {
                             shouldStop = lights.north[this.laneIndex].state !== 'green';
                         }
                         break;
                     case 'south':
-                        if (this.y > stopLineS + STOP_LINE_BACK - stopZone && this.y < stopLineS + STOP_LINE_BACK + stopZone) {
+                        if (this.y > stopLineS - STOP_LINE_BACK - stopZone && this.y < stopLineS - STOP_LINE_BACK + stopZone) {
                             shouldStop = lights.south[this.laneIndex].state !== 'green';
                         }
                         break;
@@ -627,8 +627,6 @@
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
 
-            console.log('Click detected at:', {x, y, rectWidth: rect.width, rectHeight: rect.height});
-
             // Check if version chip was clicked
             if (window.versionChipBounds) {
                 const bounds = window.versionChipBounds;
@@ -652,9 +650,7 @@
             }
 
             const clicked = getClickedLight(x, y);
-            console.log('Clicked light:', clicked);
             if (clicked) {
-                console.log('Advancing light:', clicked);
                 advanceLightState(clicked.direction, clicked.lane);
             }
         });
