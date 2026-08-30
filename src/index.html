@@ -252,6 +252,68 @@
             drawVersionChip();
         }
 
+        function cycleState(currentState) {
+            const cycle = ['red', 'yellow', 'green'];
+            const currentIndex = cycle.indexOf(currentState);
+            return cycle[(currentIndex + 1) % cycle.length];
+        }
+
+        function getClickedLight(x, y) {
+            const stopLineOffset = STOP_LINE_OFFSET;
+            const roadHalf = ROAD_WIDTH / 2;
+            const clickRadius = 20;
+
+            // Check north lights
+            for (let i = 0; i < 3; i++) {
+                const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
+                const lightY = CENTER - roadHalf - stopLineOffset;
+                if (Math.hypot(x - laneX, y - lightY) < clickRadius) {
+                    return 'north';
+                }
+            }
+
+            // Check south lights
+            for (let i = 0; i < 3; i++) {
+                const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
+                const lightY = CENTER + roadHalf + stopLineOffset;
+                if (Math.hypot(x - laneX, y - lightY) < clickRadius) {
+                    return 'south';
+                }
+            }
+
+            // Check east lights
+            for (let i = 0; i < 3; i++) {
+                const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
+                const lightX = CENTER + roadHalf + stopLineOffset;
+                if (Math.hypot(x - lightX, y - laneY) < clickRadius) {
+                    return 'east';
+                }
+            }
+
+            // Check west lights
+            for (let i = 0; i < 3; i++) {
+                const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
+                const lightX = CENTER - roadHalf - stopLineOffset;
+                if (Math.hypot(x - lightX, y - laneY) < clickRadius) {
+                    return 'west';
+                }
+            }
+
+            return null;
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const clicked = getClickedLight(x, y);
+            if (clicked) {
+                lights[clicked].state = cycleState(lights[clicked].state);
+                update();
+            }
+        });
+
         // Initial draw
         update();
     </script>
