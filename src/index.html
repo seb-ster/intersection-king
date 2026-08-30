@@ -226,7 +226,7 @@
         }
 
         function drawVersionChip() {
-            const version = 'v0.1';
+            const version = 'v0.2';
             const padding = 12;
             const fontSize = 14;
             ctx.font = `${fontSize}px monospace`;
@@ -236,24 +236,79 @@
             const x = canvas.width - chipWidth - padding;
             const y = padding;
 
-            // Background
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            // Background with high contrast
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
             ctx.fillRect(x, y, chipWidth, chipHeight);
 
-            // Border
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 1;
+            // Border with high contrast
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
             ctx.strokeRect(x, y, chipWidth, chipHeight);
 
-            // Text
-            ctx.fillStyle = '#ccc';
+            // Text with high contrast
+            ctx.fillStyle = '#ffff00';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             ctx.fillText(version, x + padding, y + padding / 2);
         }
 
+        function drawLaneArrows() {
+            const arrowSize = 15;
+            const arrowColor = 'rgba(255, 255, 255, 0.3)';
+            const roadHalf = ROAD_WIDTH / 2;
+
+            // Draw arrows pointing in direction of traffic flow
+            // North lanes (traffic flowing down)
+            for (let i = 0; i < 3; i++) {
+                const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
+                drawArrow(laneX, CENTER - 100, laneX, CENTER - 150, arrowColor, arrowSize);
+            }
+
+            // South lanes (traffic flowing up)
+            for (let i = 0; i < 3; i++) {
+                const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
+                drawArrow(laneX, CENTER + 100, laneX, CENTER + 150, arrowColor, arrowSize);
+            }
+
+            // East lanes (traffic flowing left)
+            for (let i = 0; i < 3; i++) {
+                const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
+                drawArrow(CENTER + 100, laneY, CENTER + 150, laneY, arrowColor, arrowSize);
+            }
+
+            // West lanes (traffic flowing right)
+            for (let i = 0; i < 3; i++) {
+                const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
+                drawArrow(CENTER - 100, laneY, CENTER - 150, laneY, arrowColor, arrowSize);
+            }
+        }
+
+        function drawArrow(fromX, fromY, toX, toY, color, size) {
+            const headlen = size;
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2;
+
+            // Draw line
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+
+            // Draw arrowhead
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+        }
+
         function update() {
             draw();
+            drawLaneArrows();
             drawAllTrafficLights();
             drawVersionChip();
         }
