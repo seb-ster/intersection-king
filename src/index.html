@@ -44,12 +44,28 @@
         const CENTER = canvas.width / 2;
         const STOP_LINE_OFFSET = 30;  // Distance from intersection edge to stop line
 
-        // Traffic light state
+        // Traffic light state (one per lane)
         const lights = {
-            north: { state: 'red', yellowTimer: null },
-            south: { state: 'red', yellowTimer: null },
-            east: { state: 'red', yellowTimer: null },
-            west: { state: 'red', yellowTimer: null }
+            north: [
+                { state: 'red', yellowTimer: null },
+                { state: 'red', yellowTimer: null },
+                { state: 'red', yellowTimer: null }
+            ],
+            south: [
+                { state: 'red', yellowTimer: null },
+                { state: 'red', yellowTimer: null },
+                { state: 'red', yellowTimer: null }
+            ],
+            east: [
+                { state: 'red', yellowTimer: null },
+                { state: 'red', yellowTimer: null },
+                { state: 'red', yellowTimer: null }
+            ],
+            west: [
+                { state: 'red', yellowTimer: null },
+                { state: 'red', yellowTimer: null },
+                { state: 'red', yellowTimer: null }
+            ]
         };
 
         const YELLOW_DURATION = 1500;  // Yellow light duration in milliseconds
@@ -125,27 +141,49 @@
                 switch (this.direction) {
                     case 'north':
                         if (this.y < stopLineS + STOP_LINE_BACK + stopZone && this.y > stopLineS + STOP_LINE_BACK - stopZone) {
-                            shouldStop = lights.north.state !== 'green';
+                            shouldStop = lights.north[this.laneIndex].state !== 'green';
                         }
                         break;
                     case 'south':
                         if (this.y < stopLineN - STOP_LINE_BACK + stopZone && this.y > stopLineN - STOP_LINE_BACK - stopZone) {
-                            shouldStop = lights.south.state !== 'green';
+                            shouldStop = lights.south[this.laneIndex].state !== 'green';
                         }
                         break;
                     case 'east':
                         if (this.x > stopLineE - STOP_LINE_BACK - stopZone && this.x < stopLineE - STOP_LINE_BACK + stopZone) {
-                            shouldStop = lights.east.state !== 'green';
+                            shouldStop = lights.east[this.laneIndex].state !== 'green';
                         }
                         break;
                     case 'west':
                         if (this.x > stopLineW + STOP_LINE_BACK - stopZone && this.x < stopLineW + STOP_LINE_BACK + stopZone) {
-                            shouldStop = lights.west.state !== 'green';
+                            shouldStop = lights.west[this.laneIndex].state !== 'green';
                         }
                         break;
                 }
 
                 this.waiting = shouldStop;
+
+                // Check for collision with other cars
+                const minDistance = CAR_WIDTH + 10;  // Minimum safe distance between cars
+                for (const other of cars) {
+                    if (other.id !== this.id && other.direction === this.direction && other.laneIndex === this.laneIndex) {
+                        const dist = this.direction === 'north' || this.direction === 'south'
+                            ? Math.abs(this.y - other.y)
+                            : Math.abs(this.x - other.x);
+
+                        if (dist < minDistance) {
+                            // Check if other car is ahead
+                            const otherAhead = this.direction === 'north' ? other.y < this.y :
+                                              this.direction === 'south' ? other.y > this.y :
+                                              this.direction === 'east' ? other.x > this.x :
+                                              other.x < this.x;
+
+                            if (otherAhead) {
+                                shouldStop = true;
+                            }
+                        }
+                    }
+                }
 
                 // Move if not stopped
                 if (!shouldStop) {
@@ -384,28 +422,28 @@
             for (let i = 0; i < 3; i++) {
                 const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightY = CENTER - roadHalf - stopLineOffset;
-                drawTrafficLight(laneX, lightY, lights.north.state, 'vertical');
+                drawTrafficLight(laneX, lightY, lights.north[i].state, 'vertical');
             }
 
             // South approach (bottom, vertical orientation)
             for (let i = 0; i < 3; i++) {
                 const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightY = CENTER + roadHalf + stopLineOffset;
-                drawTrafficLight(laneX, lightY, lights.south.state, 'vertical');
+                drawTrafficLight(laneX, lightY, lights.south[i].state, 'vertical');
             }
 
             // East approach (right, horizontal orientation)
             for (let i = 0; i < 3; i++) {
                 const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightX = CENTER + roadHalf + stopLineOffset;
-                drawTrafficLight(lightX, laneY, lights.east.state, 'horizontal');
+                drawTrafficLight(lightX, laneY, lights.east[i].state, 'horizontal');
             }
 
             // West approach (left, horizontal orientation)
             for (let i = 0; i < 3; i++) {
                 const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightX = CENTER - roadHalf - stopLineOffset;
-                drawTrafficLight(lightX, laneY, lights.west.state, 'horizontal');
+                drawTrafficLight(lightX, laneY, lights.west[i].state, 'horizontal');
             }
         }
 
@@ -505,7 +543,7 @@
                 for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
                     const bulbY = lightY - spacing + (bulbIndex * spacing);
                     if (Math.hypot(x - laneX, y - bulbY) < clickRadius) {
-                        return 'north';
+                        return { direction: 'north', lane: i };
                     }
                 }
             }
@@ -517,7 +555,7 @@
                 for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
                     const bulbY = lightY - spacing + (bulbIndex * spacing);
                     if (Math.hypot(x - laneX, y - bulbY) < clickRadius) {
-                        return 'south';
+                        return { direction: 'south', lane: i };
                     }
                 }
             }
@@ -529,7 +567,7 @@
                 for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
                     const bulbX = lightX - spacing + (bulbIndex * spacing);
                     if (Math.hypot(x - bulbX, y - laneY) < clickRadius) {
-                        return 'east';
+                        return { direction: 'east', lane: i };
                     }
                 }
             }
@@ -541,7 +579,7 @@
                 for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
                     const bulbX = lightX - spacing + (bulbIndex * spacing);
                     if (Math.hypot(x - bulbX, y - laneY) < clickRadius) {
-                        return 'west';
+                        return { direction: 'west', lane: i };
                     }
                 }
             }
@@ -549,8 +587,8 @@
             return null;
         }
 
-        function advanceLightState(direction) {
-            const light = lights[direction];
+        function advanceLightState(direction, lane) {
+            const light = lights[direction][lane];
             // Clear any existing timer
             if (light.yellowTimer) clearTimeout(light.yellowTimer);
 
@@ -613,7 +651,7 @@
 
             const clicked = getClickedLight(x, y);
             if (clicked) {
-                advanceLightState(clicked);
+                advanceLightState(clicked.direction, clicked.lane);
             }
         });
 
