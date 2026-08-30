@@ -419,8 +419,8 @@
         }
 
         function drawVersionChip() {
-            const padding = 12;
-            const fontSize = 14;
+            const padding = 24;  // Scaled for larger canvas
+            const fontSize = 28;  // Scaled for larger canvas
             ctx.font = `${fontSize}px monospace`;
             const textWidth = ctx.measureText(VERSION).width;
             let chipWidth = textWidth + padding * 2;
