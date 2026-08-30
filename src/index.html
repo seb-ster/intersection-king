@@ -627,6 +627,8 @@
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
 
+            console.log('Click detected at:', {x, y, rectWidth: rect.width, rectHeight: rect.height});
+
             // Check if version chip was clicked
             if (window.versionChipBounds) {
                 const bounds = window.versionChipBounds;
@@ -650,7 +652,9 @@
             }
 
             const clicked = getClickedLight(x, y);
+            console.log('Clicked light:', clicked);
             if (clicked) {
+                console.log('Advancing light:', clicked);
                 advanceLightState(clicked.direction, clicked.lane);
             }
         });
