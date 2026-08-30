@@ -40,11 +40,13 @@
 
         // Traffic light state
         const lights = {
-            north: { state: 'red' },  // green, yellow, red
-            south: { state: 'red' },
-            east: { state: 'red' },
-            west: { state: 'red' }
+            north: { state: 'red', yellowTimer: null },
+            south: { state: 'red', yellowTimer: null },
+            east: { state: 'red', yellowTimer: null },
+            west: { state: 'red', yellowTimer: null }
         };
+
+        const YELLOW_DURATION = 1500;  // Yellow light duration in milliseconds
 
         function draw() {
             // Clear canvas
@@ -302,6 +304,27 @@
             return null;
         }
 
+        function advanceLightState(direction) {
+            const light = lights[direction];
+            // Clear any existing timer
+            if (light.yellowTimer) clearTimeout(light.yellowTimer);
+
+            light.state = cycleState(light.state);
+
+            // Auto-advance yellow to green after delay
+            if (light.state === 'yellow') {
+                light.yellowTimer = setTimeout(() => {
+                    light.state = 'green';
+                    light.yellowTimer = null;
+                    update();
+                }, YELLOW_DURATION);
+            } else {
+                light.yellowTimer = null;
+            }
+
+            update();
+        }
+
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
@@ -309,8 +332,7 @@
 
             const clicked = getClickedLight(x, y);
             if (clicked) {
-                lights[clicked].state = cycleState(lights[clicked].state);
-                update();
+                advanceLightState(clicked);
             }
         });
 
