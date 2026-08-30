@@ -117,22 +117,22 @@
                 switch (this.direction) {
                     case 'north':
                         if (this.y < stopLineS + 50 && this.y > stopLineS - 50) {
-                            shouldStop = lights.north.state === 'red';
+                            shouldStop = lights.north.state !== 'green';
                         }
                         break;
                     case 'south':
                         if (this.y < stopLineN + 50 && this.y > stopLineN - 50) {
-                            shouldStop = lights.south.state === 'red';
+                            shouldStop = lights.south.state !== 'green';
                         }
                         break;
                     case 'east':
                         if (this.x < stopLineE + 50 && this.x > stopLineE - 50) {
-                            shouldStop = lights.east.state === 'red';
+                            shouldStop = lights.east.state !== 'green';
                         }
                         break;
                     case 'west':
                         if (this.x < stopLineW + 50 && this.x > stopLineW - 50) {
-                            shouldStop = lights.west.state === 'red';
+                            shouldStop = lights.west.state !== 'green';
                         }
                         break;
                 }
