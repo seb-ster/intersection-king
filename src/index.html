@@ -221,28 +221,45 @@
             }
         }
 
+        function drawRoundedRect(x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.arcTo(x + width, y, x + width, y + radius, radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+            ctx.lineTo(x + radius, y + height);
+            ctx.arcTo(x, y + height, x, y + height - radius, radius);
+            ctx.lineTo(x, y + radius);
+            ctx.arcTo(x, y, x + radius, y, radius);
+            ctx.closePath();
+        }
+
         function drawVersionChip() {
-            const version = 'v0.1';
+            const version = 'v0.2';
             const padding = 12;
             const fontSize = 14;
             ctx.font = `${fontSize}px monospace`;
             const textWidth = ctx.measureText(version).width;
             const chipWidth = textWidth + padding * 2;
             const chipHeight = fontSize + padding;
-            const x = canvas.width - chipWidth - padding;
+            const x = padding;
             const y = padding;
+            const cornerRadius = chipHeight / 2;
 
-            // Background
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-            ctx.fillRect(x, y, chipWidth, chipHeight);
+            // Background with high contrast
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            drawRoundedRect(x, y, chipWidth, chipHeight, cornerRadius);
+            ctx.fill();
 
-            // Border
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(x, y, chipWidth, chipHeight);
+            // Border with high contrast
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 2;
+            drawRoundedRect(x, y, chipWidth, chipHeight, cornerRadius);
+            ctx.stroke();
 
-            // Text
-            ctx.fillStyle = '#ccc';
+            // Text with high contrast
+            ctx.fillStyle = '#ffff00';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
             ctx.fillText(version, x + padding, y + padding / 2);
