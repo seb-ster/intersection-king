@@ -140,12 +140,12 @@
                 const stopZone = 100;
                 switch (this.direction) {
                     case 'north':
-                        if (this.y < stopLineS + STOP_LINE_BACK + stopZone && this.y > stopLineS + STOP_LINE_BACK - stopZone) {
+                        if (this.y > stopLineN - STOP_LINE_BACK - stopZone && this.y < stopLineN - STOP_LINE_BACK + stopZone) {
                             shouldStop = lights.north[this.laneIndex].state !== 'green';
                         }
                         break;
                     case 'south':
-                        if (this.y < stopLineN - STOP_LINE_BACK + stopZone && this.y > stopLineN - STOP_LINE_BACK - stopZone) {
+                        if (this.y > stopLineS + STOP_LINE_BACK - stopZone && this.y < stopLineS + STOP_LINE_BACK + stopZone) {
                             shouldStop = lights.south[this.laneIndex].state !== 'green';
                         }
                         break;
