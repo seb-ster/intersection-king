@@ -114,66 +114,108 @@
         function drawTrafficLight(x, y, state, orientation = 'vertical') {
             const bulbRadius = 12;
             const spacing = 30;
+            const cassingPadding = 8;
             const colors = {
                 red: '#e0654f',
                 yellow: '#e8b23f',
                 green: '#8fb878'
             };
 
-            // Draw pole
-            ctx.fillStyle = '#333';
-            ctx.fillRect(x - 4, y - spacing * 1.5, 8, spacing * 3);
-
-            // Draw bulbs (red, yellow, green from top to bottom)
             const bulbs = ['red', 'yellow', 'green'];
-            bulbs.forEach((color, i) => {
-                const bulbY = y - spacing + (i * spacing);
 
-                // Bulb circle
-                ctx.fillStyle = colors[color];
-                ctx.globalAlpha = color === state ? 1.0 : 0.2;
-                ctx.beginPath();
-                ctx.arc(x, bulbY, bulbRadius, 0, Math.PI * 2);
-                ctx.fill();
+            if (orientation === 'vertical') {
+                // Vertical housing (North/South)
+                const casingWidth = bulbRadius * 2 + cassingPadding * 2;
+                const casingHeight = spacing * 3 + cassingPadding * 2;
 
-                // Bulb outline
-                ctx.strokeStyle = colors[color];
+                ctx.fillStyle = '#d4a500';
+                ctx.fillRect(x - casingWidth / 2, y - spacing * 1.5 - cassingPadding, casingWidth, casingHeight);
+
+                ctx.strokeStyle = '#8b7500';
                 ctx.lineWidth = 2;
-                ctx.stroke();
-                ctx.globalAlpha = 1.0;
-            });
+                ctx.strokeRect(x - casingWidth / 2, y - spacing * 1.5 - cassingPadding, casingWidth, casingHeight);
+
+                // Draw pole
+                ctx.fillStyle = '#333';
+                ctx.fillRect(x - 4, y - spacing * 1.5, 8, spacing * 3);
+
+                // Draw bulbs
+                bulbs.forEach((color, i) => {
+                    const bulbY = y - spacing + (i * spacing);
+                    ctx.fillStyle = colors[color];
+                    ctx.globalAlpha = color === state ? 1.0 : 0.2;
+                    ctx.beginPath();
+                    ctx.arc(x, bulbY, bulbRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.strokeStyle = colors[color];
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1.0;
+                });
+            } else if (orientation === 'horizontal') {
+                // Horizontal housing (East/West) - rotated 90 degrees counter-clockwise
+                const casingWidth = spacing * 3 + cassingPadding * 2;
+                const casingHeight = bulbRadius * 2 + cassingPadding * 2;
+
+                ctx.fillStyle = '#d4a500';
+                ctx.fillRect(x - spacing * 1.5 - cassingPadding, y - casingHeight / 2, casingWidth, casingHeight);
+
+                ctx.strokeStyle = '#8b7500';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x - spacing * 1.5 - cassingPadding, y - casingHeight / 2, casingWidth, casingHeight);
+
+                // Draw pole
+                ctx.fillStyle = '#333';
+                ctx.fillRect(x - spacing * 1.5, y - 4, spacing * 3, 8);
+
+                // Draw bulbs horizontally (red on left, yellow middle, green on right)
+                bulbs.forEach((color, i) => {
+                    const bulbX = x - spacing + (i * spacing);
+                    ctx.fillStyle = colors[color];
+                    ctx.globalAlpha = color === state ? 1.0 : 0.2;
+                    ctx.beginPath();
+                    ctx.arc(bulbX, y, bulbRadius, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.strokeStyle = colors[color];
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.globalAlpha = 1.0;
+                });
+            }
         }
 
         function drawAllTrafficLights() {
             const stopLineOffset = STOP_LINE_OFFSET;
             const roadHalf = ROAD_WIDTH / 2;
 
-            // North approach (top, facing down)
+            // North approach (top, vertical orientation)
             for (let i = 0; i < 3; i++) {
                 const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightY = CENTER - roadHalf - stopLineOffset;
-                drawTrafficLight(laneX, lightY, lights.north.state);
+                drawTrafficLight(laneX, lightY, lights.north.state, 'vertical');
             }
 
-            // South approach (bottom, facing up)
+            // South approach (bottom, vertical orientation)
             for (let i = 0; i < 3; i++) {
                 const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightY = CENTER + roadHalf + stopLineOffset;
-                drawTrafficLight(laneX, lightY, lights.south.state);
+                drawTrafficLight(laneX, lightY, lights.south.state, 'vertical');
             }
 
-            // East approach (right, facing left)
+            // East approach (right, horizontal orientation)
             for (let i = 0; i < 3; i++) {
                 const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightX = CENTER + roadHalf + stopLineOffset;
-                drawTrafficLight(lightX, laneY, lights.east.state);
+                drawTrafficLight(lightX, laneY, lights.east.state, 'horizontal');
             }
 
-            // West approach (left, facing right)
+            // West approach (left, horizontal orientation)
             for (let i = 0; i < 3; i++) {
                 const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightX = CENTER - roadHalf - stopLineOffset;
-                drawTrafficLight(lightX, laneY, lights.west.state);
+                drawTrafficLight(lightX, laneY, lights.west.state, 'horizontal');
             }
         }
 
