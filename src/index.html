@@ -300,41 +300,56 @@
         function getClickedLight(x, y) {
             const stopLineOffset = STOP_LINE_OFFSET;
             const roadHalf = ROAD_WIDTH / 2;
-            const clickRadius = 20;
+            const bulbRadius = 12;
+            const spacing = 30;
+            const clickRadius = bulbRadius + 8;  // Clickable area around each bulb
 
-            // Check north lights
+            // Check north lights (vertical orientation)
             for (let i = 0; i < 3; i++) {
                 const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightY = CENTER - roadHalf - stopLineOffset;
-                if (Math.hypot(x - laneX, y - lightY) < clickRadius) {
-                    return 'north';
+                // Check each bulb in the vertical stack
+                for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
+                    const bulbY = lightY - spacing + (bulbIndex * spacing);
+                    if (Math.hypot(x - laneX, y - bulbY) < clickRadius) {
+                        return 'north';
+                    }
                 }
             }
 
-            // Check south lights
+            // Check south lights (vertical orientation)
             for (let i = 0; i < 3; i++) {
                 const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightY = CENTER + roadHalf + stopLineOffset;
-                if (Math.hypot(x - laneX, y - lightY) < clickRadius) {
-                    return 'south';
+                for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
+                    const bulbY = lightY - spacing + (bulbIndex * spacing);
+                    if (Math.hypot(x - laneX, y - bulbY) < clickRadius) {
+                        return 'south';
+                    }
                 }
             }
 
-            // Check east lights
+            // Check east lights (horizontal orientation)
             for (let i = 0; i < 3; i++) {
                 const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightX = CENTER + roadHalf + stopLineOffset;
-                if (Math.hypot(x - lightX, y - laneY) < clickRadius) {
-                    return 'east';
+                for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
+                    const bulbX = lightX - spacing + (bulbIndex * spacing);
+                    if (Math.hypot(x - bulbX, y - laneY) < clickRadius) {
+                        return 'east';
+                    }
                 }
             }
 
-            // Check west lights
+            // Check west lights (horizontal orientation)
             for (let i = 0; i < 3; i++) {
                 const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightX = CENTER - roadHalf - stopLineOffset;
-                if (Math.hypot(x - lightX, y - laneY) < clickRadius) {
-                    return 'west';
+                for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
+                    const bulbX = lightX - spacing + (bulbIndex * spacing);
+                    if (Math.hypot(x - bulbX, y - laneY) < clickRadius) {
+                        return 'west';
+                    }
                 }
             }
 
