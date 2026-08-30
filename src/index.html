@@ -121,24 +121,25 @@
                 const stopLineW = CENTER - roadHalf - stopLineOffset;
 
                 let shouldStop = false;
+                const stopZone = 100;
                 switch (this.direction) {
                     case 'north':
-                        if (this.y < stopLineS + STOP_LINE_BACK + 50 && this.y > stopLineS + STOP_LINE_BACK - 50) {
+                        if (this.y < stopLineS + STOP_LINE_BACK + stopZone && this.y > stopLineS + STOP_LINE_BACK - stopZone) {
                             shouldStop = lights.north.state !== 'green';
                         }
                         break;
                     case 'south':
-                        if (this.y < stopLineN - STOP_LINE_BACK + 50 && this.y > stopLineN - STOP_LINE_BACK - 50) {
+                        if (this.y < stopLineN - STOP_LINE_BACK + stopZone && this.y > stopLineN - STOP_LINE_BACK - stopZone) {
                             shouldStop = lights.south.state !== 'green';
                         }
                         break;
                     case 'east':
-                        if (this.x < stopLineE + STOP_LINE_BACK + 50 && this.x > stopLineE + STOP_LINE_BACK - 50) {
+                        if (this.x > stopLineE - STOP_LINE_BACK - stopZone && this.x < stopLineE - STOP_LINE_BACK + stopZone) {
                             shouldStop = lights.east.state !== 'green';
                         }
                         break;
                     case 'west':
-                        if (this.x < stopLineW - STOP_LINE_BACK + 50 && this.x > stopLineW - STOP_LINE_BACK - 50) {
+                        if (this.x > stopLineW + STOP_LINE_BACK - stopZone && this.x < stopLineW + STOP_LINE_BACK + stopZone) {
                             shouldStop = lights.west.state !== 'green';
                         }
                         break;
@@ -582,8 +583,11 @@
 
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            // Scale click coordinates to canvas resolution
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
 
             // Check if version chip was clicked
             if (window.versionChipBounds) {
