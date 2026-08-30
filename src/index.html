@@ -143,7 +143,10 @@
                 bulbs.forEach((color, i) => {
                     const bulbY = y - spacing + (i * spacing);
                     ctx.fillStyle = colors[color];
-                    ctx.globalAlpha = color === state ? 1.0 : 0.2;
+                    let isLit = false;
+                    if (state === color) isLit = true;
+                    if (state === 'red+yellow' && (color === 'red' || color === 'yellow')) isLit = true;
+                    ctx.globalAlpha = isLit ? 1.0 : 0.2;
                     ctx.beginPath();
                     ctx.arc(x, bulbY, bulbRadius, 0, Math.PI * 2);
                     ctx.fill();
@@ -173,7 +176,10 @@
                 bulbs.forEach((color, i) => {
                     const bulbX = x - spacing + (i * spacing);
                     ctx.fillStyle = colors[color];
-                    ctx.globalAlpha = color === state ? 1.0 : 0.2;
+                    let isLit = false;
+                    if (state === color) isLit = true;
+                    if (state === 'red+yellow' && (color === 'red' || color === 'yellow')) isLit = true;
+                    ctx.globalAlpha = isLit ? 1.0 : 0.2;
                     ctx.beginPath();
                     ctx.arc(bulbX, y, bulbRadius, 0, Math.PI * 2);
                     ctx.fill();
@@ -253,7 +259,7 @@
         }
 
         function cycleState(currentState) {
-            const cycle = ['red', 'yellow', 'green'];
+            const cycle = ['red', 'red+yellow', 'green', 'yellow'];
             const currentIndex = cycle.indexOf(currentState);
             return cycle[(currentIndex + 1) % cycle.length];
         }
