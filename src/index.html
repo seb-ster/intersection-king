@@ -47,6 +47,9 @@
         };
 
         const YELLOW_DURATION = 1500;  // Yellow light duration in milliseconds
+        const VERSION = 'v0.2';
+        let versionCopyTimer = null;
+        let showVersionCopyLabel = false;
 
         function draw() {
             // Clear canvas
@@ -236,33 +239,50 @@
         }
 
         function drawVersionChip() {
-            const version = 'v0.2';
             const padding = 12;
             const fontSize = 14;
             ctx.font = `${fontSize}px monospace`;
-            const textWidth = ctx.measureText(version).width;
-            const chipWidth = textWidth + padding * 2;
+            const textWidth = ctx.measureText(VERSION).width;
+            let chipWidth = textWidth + padding * 2;
             const chipHeight = fontSize + padding;
             const x = padding;
             const y = padding;
             const cornerRadius = chipHeight / 2;
 
+            // Add extra width for "copied" label if shown
+            let totalWidth = chipWidth;
+            if (showVersionCopyLabel) {
+                const copiedText = 'copied';
+                const copiedWidth = ctx.measureText(copiedText).width;
+                totalWidth = chipWidth + copiedWidth + padding * 2;
+            }
+
             // Background with high contrast
             ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-            drawRoundedRect(x, y, chipWidth, chipHeight, cornerRadius);
+            drawRoundedRect(x, y, totalWidth, chipHeight, cornerRadius);
             ctx.fill();
 
             // Border with high contrast
             ctx.strokeStyle = '#ffff00';
             ctx.lineWidth = 2;
-            drawRoundedRect(x, y, chipWidth, chipHeight, cornerRadius);
+            drawRoundedRect(x, y, totalWidth, chipHeight, cornerRadius);
             ctx.stroke();
 
-            // Text with high contrast
+            // Version text with high contrast
             ctx.fillStyle = '#ffff00';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'top';
-            ctx.fillText(version, x + padding, y + padding / 2);
+            ctx.fillText(VERSION, x + padding, y + padding / 2);
+
+            // "Copied" label if shown
+            if (showVersionCopyLabel) {
+                const copiedText = 'copied';
+                ctx.fillStyle = '#88ff00';
+                ctx.fillText(copiedText, x + chipWidth + padding, y + padding / 2);
+            }
+
+            // Store chip bounds for click detection
+            window.versionChipBounds = { x, y, width: totalWidth, height: chipHeight };
         }
 
         function update() {
@@ -357,6 +377,28 @@
             const rect = canvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
+
+            // Check if version chip was clicked
+            if (window.versionChipBounds) {
+                const bounds = window.versionChipBounds;
+                if (x >= bounds.x && x <= bounds.x + bounds.width &&
+                    y >= bounds.y && y <= bounds.y + bounds.height) {
+                    // Copy version to clipboard
+                    navigator.clipboard.writeText(VERSION).then(() => {
+                        showVersionCopyLabel = true;
+                        update();
+                        // Clear timer if exists
+                        if (versionCopyTimer) clearTimeout(versionCopyTimer);
+                        // Hide label after 2 seconds
+                        versionCopyTimer = setTimeout(() => {
+                            showVersionCopyLabel = false;
+                            versionCopyTimer = null;
+                            update();
+                        }, 2000);
+                    });
+                    return;
+                }
+            }
 
             const clicked = getClickedLight(x, y);
             if (clicked) {
