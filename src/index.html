@@ -309,17 +309,28 @@
             // Clear any existing timer
             if (light.yellowTimer) clearTimeout(light.yellowTimer);
 
-            light.state = cycleState(light.state);
-
-            // Auto-advance yellow to green after delay
-            if (light.state === 'yellow') {
+            // Special handling: green goes to yellow (not directly to red)
+            if (light.state === 'green') {
+                light.state = 'yellow';
+                // Auto-advance yellow to red after delay
                 light.yellowTimer = setTimeout(() => {
-                    light.state = 'green';
+                    light.state = 'red';
                     light.yellowTimer = null;
                     update();
                 }, YELLOW_DURATION);
             } else {
-                light.yellowTimer = null;
+                light.state = cycleState(light.state);
+
+                // Auto-advance yellow to green after delay
+                if (light.state === 'yellow') {
+                    light.yellowTimer = setTimeout(() => {
+                        light.state = 'green';
+                        light.yellowTimer = null;
+                        update();
+                    }, YELLOW_DURATION);
+                } else {
+                    light.yellowTimer = null;
+                }
             }
 
             update();
