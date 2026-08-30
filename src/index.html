@@ -418,31 +418,31 @@
             const stopLineOffset = STOP_LINE_OFFSET;
             const roadHalf = ROAD_WIDTH / 2;
 
-            // North approach (top, vertical orientation)
-            for (let i = 0; i < 3; i++) {
-                const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
-                const lightY = CENTER - roadHalf - stopLineOffset;
-                drawTrafficLight(laneX, lightY, lights.north[i].state, 'vertical');
-            }
-
-            // South approach (bottom, vertical orientation)
+            // North approach - lights on SOUTH side (facing approaching cars from south)
             for (let i = 0; i < 3; i++) {
                 const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightY = CENTER + roadHalf + stopLineOffset;
+                drawTrafficLight(laneX, lightY, lights.north[i].state, 'vertical');
+            }
+
+            // South approach - lights on NORTH side (facing approaching cars from north)
+            for (let i = 0; i < 3; i++) {
+                const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
+                const lightY = CENTER - roadHalf - stopLineOffset;
                 drawTrafficLight(laneX, lightY, lights.south[i].state, 'vertical');
             }
 
-            // East approach (right, horizontal orientation)
-            for (let i = 0; i < 3; i++) {
-                const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
-                const lightX = CENTER + roadHalf + stopLineOffset;
-                drawTrafficLight(lightX, laneY, lights.east[i].state, 'horizontal');
-            }
-
-            // West approach (left, horizontal orientation)
+            // East approach - lights on WEST side (facing approaching cars from west)
             for (let i = 0; i < 3; i++) {
                 const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
                 const lightX = CENTER - roadHalf - stopLineOffset;
+                drawTrafficLight(lightX, laneY, lights.east[i].state, 'horizontal');
+            }
+
+            // West approach - lights on EAST side (facing approaching cars from east)
+            for (let i = 0; i < 3; i++) {
+                const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
+                const lightX = CENTER + roadHalf + stopLineOffset;
                 drawTrafficLight(lightX, laneY, lights.west[i].state, 'horizontal');
             }
         }
@@ -535,10 +535,10 @@
             const spacing = 30;
             const clickRadius = bulbRadius + 8;  // Clickable area around each bulb
 
-            // Check north lights (vertical orientation)
+            // Check north lights - on SOUTH side (vertical orientation)
             for (let i = 0; i < 3; i++) {
                 const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
-                const lightY = CENTER - roadHalf - stopLineOffset;
+                const lightY = CENTER + roadHalf + stopLineOffset;
                 // Check each bulb in the vertical stack
                 for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
                     const bulbY = lightY - spacing + (bulbIndex * spacing);
@@ -548,10 +548,10 @@
                 }
             }
 
-            // Check south lights (vertical orientation)
+            // Check south lights - on NORTH side (vertical orientation)
             for (let i = 0; i < 3; i++) {
                 const laneX = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
-                const lightY = CENTER + roadHalf + stopLineOffset;
+                const lightY = CENTER - roadHalf - stopLineOffset;
                 for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
                     const bulbY = lightY - spacing + (bulbIndex * spacing);
                     if (Math.hypot(x - laneX, y - bulbY) < clickRadius) {
@@ -560,10 +560,10 @@
                 }
             }
 
-            // Check east lights (horizontal orientation)
+            // Check east lights - on WEST side (horizontal orientation)
             for (let i = 0; i < 3; i++) {
                 const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
-                const lightX = CENTER + roadHalf + stopLineOffset;
+                const lightX = CENTER - roadHalf - stopLineOffset;
                 for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
                     const bulbX = lightX - spacing + (bulbIndex * spacing);
                     if (Math.hypot(x - bulbX, y - laneY) < clickRadius) {
@@ -572,10 +572,10 @@
                 }
             }
 
-            // Check west lights (horizontal orientation)
+            // Check west lights - on EAST side (horizontal orientation)
             for (let i = 0; i < 3; i++) {
                 const laneY = CENTER - roadHalf + (i + 0.5) * LANE_WIDTH;
-                const lightX = CENTER - roadHalf - stopLineOffset;
+                const lightX = CENTER + roadHalf + stopLineOffset;
                 for (let bulbIndex = 0; bulbIndex < 3; bulbIndex++) {
                     const bulbX = lightX - spacing + (bulbIndex * spacing);
                     if (Math.hypot(x - bulbX, y - laneY) < clickRadius) {
