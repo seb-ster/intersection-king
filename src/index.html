@@ -164,7 +164,7 @@
                 this.waiting = shouldStop;
 
                 // Check for collision with other cars
-                const minDistance = CAR_WIDTH + 10;  // Minimum safe distance between cars
+                const minDistance = CAR_HEIGHT + 20;  // Minimum safe distance between cars (front-to-back)
                 for (const other of cars) {
                     if (other.id !== this.id && other.direction === this.direction && other.laneIndex === this.laneIndex) {
                         const dist = this.direction === 'north' || this.direction === 'south'
@@ -172,7 +172,7 @@
                             : Math.abs(this.x - other.x);
 
                         if (dist < minDistance) {
-                            // Check if other car is ahead
+                            // Check if other car is ahead in direction of travel
                             const otherAhead = this.direction === 'north' ? other.y < this.y :
                                               this.direction === 'south' ? other.y > this.y :
                                               this.direction === 'east' ? other.x > this.x :
