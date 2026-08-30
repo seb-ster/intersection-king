@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intersection King</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 2px solid #333;
+            background: #0a0a0a;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        canvas.width = 800;
+        canvas.height = 800;
+
+        // Game constants
+        const ROAD_WIDTH = 80;
+        const LANE_WIDTH = ROAD_WIDTH / 3;
+        const CENTER = canvas.width / 2;
+
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grass
+            ctx.fillStyle = '#1a5a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Horizontal road (top-bottom street)
+            ctx.fillStyle = '#333';
+            ctx.fillRect(
+                0,
+                CENTER - ROAD_WIDTH / 2,
+                canvas.width,
+                ROAD_WIDTH
+            );
+
+            // Vertical road (left-right street)
+            ctx.fillStyle = '#333';
+            ctx.fillRect(
+                CENTER - ROAD_WIDTH / 2,
+                0,
+                ROAD_WIDTH,
+                canvas.height
+            );
+
+            // Draw lane markings (dashed lines)
+            ctx.strokeStyle = '#fff';
+            ctx.setLineDash([20, 20]);
+            ctx.lineWidth = 2;
+
+            // Horizontal lane dividers
+            for (let i = 1; i < 3; i++) {
+                const y = CENTER - ROAD_WIDTH / 2 + (i * LANE_WIDTH);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Vertical lane dividers
+            for (let i = 1; i < 3; i++) {
+                const x = CENTER - ROAD_WIDTH / 2 + (i * LANE_WIDTH);
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            ctx.setLineDash([]);
+
+            // Draw intersection center marking
+            ctx.strokeStyle = '#ffff00';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 10]);
+            ctx.strokeRect(
+                CENTER - ROAD_WIDTH / 2,
+                CENTER - ROAD_WIDTH / 2,
+                ROAD_WIDTH,
+                ROAD_WIDTH
+            );
+            ctx.setLineDash([]);
+        }
+
+        // Initial draw
+        draw();
+    </script>
+</body>
+</html>
