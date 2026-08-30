@@ -28,9 +28,9 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Set canvas size
-        canvas.width = 1200;
-        canvas.height = 1200;
+        // Set canvas size (doubled resolution for better detail)
+        canvas.width = 2400;
+        canvas.height = 2400;
 
         // Game constants
         const ROAD_WIDTH = 180;  // 3 lanes × 60px per car width
@@ -54,10 +54,11 @@
         // Car system
         const cars = [];
         let carIdCounter = 0;
-        const CAR_WIDTH = 30;
-        const CAR_HEIGHT = 20;
-        const CAR_SPEED = 3;  // pixels per frame
+        const CAR_WIDTH = 60;  // 2x bigger
+        const CAR_HEIGHT = 40;  // 2x bigger
+        const CAR_SPEED = 1.5;  // pixels per frame (slower for 45mph town speed)
         const SPAWN_INTERVAL = 2000;  // ms between spawns
+        const STOP_LINE_BACK = CAR_HEIGHT * 2;  // Move stop line back 2 car lengths
         let lastSpawnTime = Date.now();
         const carColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7'];
 
@@ -116,22 +117,22 @@
                 let shouldStop = false;
                 switch (this.direction) {
                     case 'north':
-                        if (this.y < stopLineS + 50 && this.y > stopLineS - 50) {
+                        if (this.y < stopLineS + STOP_LINE_BACK + 50 && this.y > stopLineS + STOP_LINE_BACK - 50) {
                             shouldStop = lights.north.state !== 'green';
                         }
                         break;
                     case 'south':
-                        if (this.y < stopLineN + 50 && this.y > stopLineN - 50) {
+                        if (this.y < stopLineN - STOP_LINE_BACK + 50 && this.y > stopLineN - STOP_LINE_BACK - 50) {
                             shouldStop = lights.south.state !== 'green';
                         }
                         break;
                     case 'east':
-                        if (this.x < stopLineE + 50 && this.x > stopLineE - 50) {
+                        if (this.x < stopLineE + STOP_LINE_BACK + 50 && this.x > stopLineE + STOP_LINE_BACK - 50) {
                             shouldStop = lights.east.state !== 'green';
                         }
                         break;
                     case 'west':
-                        if (this.x < stopLineW + 50 && this.x > stopLineW - 50) {
+                        if (this.x < stopLineW - STOP_LINE_BACK + 50 && this.x > stopLineW - STOP_LINE_BACK - 50) {
                             shouldStop = lights.west.state !== 'green';
                         }
                         break;
@@ -147,20 +148,31 @@
             }
 
             draw() {
+                // Car body
                 ctx.fillStyle = this.color;
                 ctx.fillRect(this.x - CAR_WIDTH / 2, this.y - CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT);
 
-                // Draw outline
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
+                // Car outline
+                ctx.strokeStyle = '#222';
+                ctx.lineWidth = 2;
                 ctx.strokeRect(this.x - CAR_WIDTH / 2, this.y - CAR_HEIGHT / 2, CAR_WIDTH, CAR_HEIGHT);
 
-                // Draw headlights if waiting
-                if (this.waiting) {
-                    ctx.fillStyle = '#fff';
-                    ctx.fillRect(this.x - CAR_WIDTH / 2 + 2, this.y - 4, 4, 4);
-                    ctx.fillRect(this.x - CAR_WIDTH / 2 + 2, this.y + 2, 4, 4);
-                }
+                // Windows
+                ctx.fillStyle = '#87ceeb';
+                ctx.globalAlpha = 0.6;
+                ctx.fillRect(this.x - CAR_WIDTH / 2 + 4, this.y - CAR_HEIGHT / 2 + 4, CAR_WIDTH / 3 - 2, CAR_HEIGHT / 2 - 6);
+                ctx.fillRect(this.x + CAR_WIDTH / 2 - 8 - CAR_WIDTH / 3, this.y - CAR_HEIGHT / 2 + 4, CAR_WIDTH / 3 - 2, CAR_HEIGHT / 2 - 6);
+                ctx.globalAlpha = 1.0;
+
+                // Headlights (front)
+                ctx.fillStyle = this.waiting ? '#ffff99' : '#fff';
+                ctx.fillRect(this.x - CAR_WIDTH / 2 + 2, this.y - 6, 4, 3);
+                ctx.fillRect(this.x - CAR_WIDTH / 2 + 2, this.y + 3, 4, 3);
+
+                // Taillights (back)
+                ctx.fillStyle = this.waiting ? '#ff9999' : '#ff4444';
+                ctx.fillRect(this.x + CAR_WIDTH / 2 - 6, this.y - 6, 4, 3);
+                ctx.fillRect(this.x + CAR_WIDTH / 2 - 6, this.y + 3, 4, 3);
             }
 
             isOffScreen() {
